@@ -1,0 +1,62 @@
+.handwriting-text {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.handwriting-text__content {
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 0;
+  padding-right: 0.06em;
+  border-right: 0.05em solid currentColor;
+  border-right-color: transparent;
+  animation:
+    handwriting-reveal var(--handwriting-duration, 1200ms)
+      steps(var(--handwriting-steps, 12), end) var(--handwriting-delay, 0ms) forwards,
+    handwriting-caret 680ms step-end var(--handwriting-delay, 0ms) 6,
+    handwriting-caret-hide 1ms linear
+      calc(var(--handwriting-delay, 0ms) + var(--handwriting-duration, 1200ms)) forwards;
+}
+
+.handwriting-text__content--inactive {
+  animation: none;
+  width: 0;
+  border-right-color: transparent;
+}
+
+@keyframes handwriting-reveal {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: var(--handwriting-target-width, 100%);
+  }
+}
+
+@keyframes handwriting-caret {
+  0%,
+  100% {
+    border-right-color: transparent;
+  }
+
+  50% {
+    border-right-color: currentColor;
+  }
+}
+
+@keyframes handwriting-caret-hide {
+  to {
+    border-right-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .handwriting-text__content {
+    width: auto;
+    padding-right: 0;
+    border-right: 0;
+    animation: none;
+  }
+}

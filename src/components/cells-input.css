@@ -1,0 +1,38 @@
+.cells-input {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cells-input-item-wrapper {
+  display: flex;
+  flex-flow: row nowrap;
+  position: relative;
+}
+
+.cells-input-item {
+  display: inline-block;
+  width: 18px;
+  height: 26px;
+  border: 1px solid #afafaf;
+}
+
+.cells-input-item:not(:first-child) {
+  border-left: none;
+}
+
+.cells-input-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 1.85rem;
+  font-family: var(--font-script);
+  color: var(--accent);
+  transform: translate(-50%, -50%);
+}
+
+.cells-input-label {
+  display: inline-flex;
+  margin-top: 4px;
+  text-transform: lowercase;
+}

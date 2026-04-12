@@ -1,0 +1,49 @@
+.timer {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.timer-cell {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.timer-number {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 6px;
+  width: 80px;
+  height: 80px;
+  color: var(--accent);
+  font-size: 3.2rem;
+  border-radius: 12px;
+  border: 2px solid var(--accent);
+}
+
+.timer-text {
+  display: inline-block;
+  margin-top: 8px;
+  text-align: center;
+  text-transform: lowercase;
+}
+
+.timer-divider {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: -10px 12px 0;
+  gap: 10px;
+}
+
+.timer-divider::before,
+.timer-divider::after {
+  content: '';
+  width: 8px;
+  height: 10px;
+  border-radius: 12px;
+  background-color: var(--accent);
+}
