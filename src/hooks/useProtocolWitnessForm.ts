@@ -115,8 +115,8 @@ export function useProtocolWitnessForm() {
       headers.Authorization = 'OAuth ' + YANDEX_FORMS_OAUTH_TOKEN;
     }
 
-    // Yandex single choice question expects answer IDs like yes/no.
-    const confirmationValue = confirmationRaw === 'yes' ? 'yes' : 'no';
+    // Yandex choice question expects an array of selected answer IDs.
+    const confirmationValue = [confirmationRaw === 'yes' ? 'yes' : 'no'];
 
     const formsApiBaseUrl = getFormsApiBaseUrl();
     const formsKey = YANDEX_FORMS_KEY.trim();
