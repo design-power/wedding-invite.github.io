@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     env:
       VITE_YANDEX_FORMS_SURVEY_ID: ${{ vars.VITE_YANDEX_FORMS_SURVEY_ID != '' && vars.VITE_YANDEX_FORMS_SURVEY_ID || secrets.VITE_YANDEX_FORMS_SURVEY_ID }}
       VITE_YANDEX_FORMS_NAME_SLUG: ${{ vars.VITE_YANDEX_FORMS_NAME_SLUG != '' && vars.VITE_YANDEX_FORMS_NAME_SLUG || secrets.VITE_YANDEX_FORMS_NAME_SLUG }}
