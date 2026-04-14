@@ -1,22 +1,14 @@
 import { useCallback, useState } from 'react';
 import type { FormEvent } from 'react';
 
-const YANDEX_FORMS_SURVEY_ID = import.meta.env.VITE_YANDEX_FORMS_SURVEY_ID ?? '';
-const YANDEX_FORMS_NAME_SLUG = import.meta.env.VITE_YANDEX_FORMS_NAME_SLUG ?? 'name';
-const YANDEX_FORMS_CONFIRMATION_SLUG = import.meta.env.VITE_YANDEX_FORMS_CONFIRMATION_SLUG ?? 'confirmation';
-const YANDEX_FORMS_KEY = import.meta.env.VITE_YANDEX_FORMS_KEY ?? '';
-const YANDEX_FORMS_OAUTH_TOKEN = import.meta.env.VITE_YANDEX_FORMS_OAUTH_TOKEN ?? '';
-const RAW_YANDEX_FORMS_PROXY_URL = import.meta.env.VITE_YANDEX_FORMS_PROXY_URL ?? '';
-const YANDEX_FORMS_PROXY_URL =
-  RAW_YANDEX_FORMS_PROXY_URL.trim() || (import.meta.env.DEV ? '/api/yandex-forms' : '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/$/, '');
+const WITNESS_FORM_SUBMITTED_STORAGE_KEY = 'wedding_invite_witness_form_submitted:v1';
 
-const WITNESS_FORM_SUBMITTED_STORAGE_KEY_BASE = 'wedding_invite_witness_form_submitted';
-
-const getFormsApiBaseUrl = () => YANDEX_FORMS_PROXY_URL.replace(/\/$/, '');
-const getSubmittedStorageKey = () =>
-  WITNESS_FORM_SUBMITTED_STORAGE_KEY_BASE + ':' + (YANDEX_FORMS_SURVEY_ID || 'default');
+const ALREADY_SUBMITTED_MESSAGE =
+  'Ответ уже сохранен. Повторная отправка отключена на этом устройстве.';
 
 const hasWindow = () => typeof window !== 'undefined';
+const getApiUrl = (path: string) => (API_BASE_URL ? API_BASE_URL + path : path);
 
 const readSubmittedFromStorage = (): boolean => {
   if (!hasWindow()) {
@@ -24,7 +16,7 @@ const readSubmittedFromStorage = (): boolean => {
   }
 
   try {
-    const rawValue = window.localStorage.getItem(getSubmittedStorageKey());
+    const rawValue = window.localStorage.getItem(WITNESS_FORM_SUBMITTED_STORAGE_KEY);
 
     if (!rawValue) {
       return false;
@@ -44,19 +36,16 @@ const writeSubmittedToStorage = () => {
 
   try {
     window.localStorage.setItem(
-      getSubmittedStorageKey(),
+      WITNESS_FORM_SUBMITTED_STORAGE_KEY,
       JSON.stringify({
         submitted: true,
         submittedAt: new Date().toISOString(),
       }),
     );
   } catch {
-    // Ignore storage write errors (Safari private mode / quota).
+    // Ignore storage write errors.
   }
 };
-
-const ALREADY_SUBMITTED_MESSAGE =
-  'Ответ уже сохранен. Повторная отправка отключена на этом устройстве.';
 
 export type FormSubmitStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -77,60 +66,35 @@ export function useProtocolWitnessForm() {
       return;
     }
 
-    if (!YANDEX_FORMS_SURVEY_ID) {
-      setFormSubmitStatus('error');
-      setFormSubmitMessage(
-        'Не настроен VITE_YANDEX_FORMS_SURVEY_ID. Добавьте его в .env и перезапустите dev сервер.',
-      );
-      return;
-    }
-
-    if (!YANDEX_FORMS_PROXY_URL) {
-      setFormSubmitStatus('error');
-      setFormSubmitMessage(
-        'Не настроен VITE_YANDEX_FORMS_PROXY_URL для production. Укажите URL вашего proxy/backend.',
-      );
-      return;
-    }
-
     const formElement = event.currentTarget;
     const formData = new FormData(formElement);
     const fullName = String(formData.get('name') ?? '').trim();
-    const confirmationRaw = String(formData.get('confirmation') ?? '').trim();
+    const confirmation = String(formData.get('confirmation') ?? '').trim();
 
-    if (!fullName || !confirmationRaw) {
+    if (!fullName || !confirmation) {
       setFormSubmitStatus('error');
       setFormSubmitMessage('Заполните ФИО и выберите один из вариантов.');
+      return;
+    }
+
+    if (confirmation !== 'yes' && confirmation !== 'no') {
+      setFormSubmitStatus('error');
+      setFormSubmitMessage('Выберите корректный вариант ответа.');
       return;
     }
 
     setFormSubmitStatus('submitting');
     setFormSubmitMessage('');
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (YANDEX_FORMS_OAUTH_TOKEN) {
-      headers.Authorization = 'OAuth ' + YANDEX_FORMS_OAUTH_TOKEN;
-    }
-
-    // Yandex choice question expects an array of selected answer IDs.
-    const confirmationValue = [confirmationRaw === 'yes' ? 'yes' : 'no'];
-
-    const formsApiBaseUrl = getFormsApiBaseUrl();
-    const formsKey = YANDEX_FORMS_KEY.trim();
-    const submitQuery = formsKey ? '?key=' + encodeURIComponent(formsKey) : '';
-    const submitUrl =
-      formsApiBaseUrl + '/surveys/' + YANDEX_FORMS_SURVEY_ID + '/form' + submitQuery;
-
     try {
-      const response = await fetch(submitUrl, {
+      const response = await fetch(getApiUrl('/api/rsvp'), {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          [YANDEX_FORMS_NAME_SLUG]: fullName,
-          [YANDEX_FORMS_CONFIRMATION_SLUG]: confirmationValue,
+          name: fullName,
+          confirmation,
         }),
       });
 
@@ -152,9 +116,9 @@ export function useProtocolWitnessForm() {
       setFormSubmitStatus('success');
       setFormSubmitMessage('Спасибо! Ответ отправлен.');
     } catch (error) {
-      console.error('Yandex Forms submit failed:', error);
+      console.error('RSVP submit failed:', error);
       setFormSubmitStatus('error');
-      setFormSubmitMessage('Не удалось отправить форму. Проверьте настройки Yandex Forms и сеть.');
+      setFormSubmitMessage('Не удалось отправить форму. Попробуйте еще раз позже.');
     }
   }, []);
 

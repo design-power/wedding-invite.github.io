@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-const YANDEX_FORMS_SURVEY_ID = import.meta.env.VITE_YANDEX_FORMS_SURVEY_ID ?? '';
-const YANDEX_FORMS_NAME_SLUG = import.meta.env.VITE_YANDEX_FORMS_NAME_SLUG ?? 'name';
-const YANDEX_FORMS_CONFIRMATION_SLUG = import.meta.env.VITE_YANDEX_FORMS_CONFIRMATION_SLUG ?? 'confirmation';
-const YANDEX_FORMS_PROXY_URL =
-  (import.meta.env.VITE_YANDEX_FORMS_PROXY_URL ?? '').trim() ||
-  (import.meta.env.DEV ? '/api/yandex-forms' : '');
-const YANDEX_FORMS_OAUTH_TOKEN = import.meta.env.VITE_YANDEX_FORMS_OAUTH_TOKEN ?? '';
-const YANDEX_FORMS_ORG_ID = (import.meta.env.VITE_YANDEX_FORMS_ORG_ID ?? '').trim();
-const YANDEX_FORMS_CLOUD_ORG_ID = (import.meta.env.VITE_YANDEX_FORMS_CLOUD_ORG_ID ?? '').trim();
-const ANSWERS_PAGE_SIZE = 100;
-const MAX_PAGES = 30;
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/$/, '');
 
 export type SurveyResultRow = {
   id: string;
@@ -21,167 +11,58 @@ export type SurveyResultRow = {
 
 export type SurveyResultsStatus = 'idle' | 'loading' | 'success' | 'error';
 
-type ApiAnswerItem = {
+type ApiResultRow = {
   id?: string | number;
-  value?: unknown;
-  label?: unknown;
+  name?: unknown;
+  confirmation?: unknown;
+  created_at?: unknown;
+  createdAt?: unknown;
 };
 
-type ApiAnswer = {
-  id?: string | number;
-  created?: string;
-  data?: Array<ApiAnswerItem | null>;
+type ApiResultsResponse = {
+  rows?: ApiResultRow[];
 };
 
-type ApiColumn = {
-  id?: string | number;
-  slug?: string;
-};
+const getApiUrl = (path: string) => (API_BASE_URL ? API_BASE_URL + path : path);
 
-type ApiAnswersResponse = {
-  answers?: ApiAnswer[];
-  columns?: ApiColumn[];
-  next?: {
-    next_url?: string;
-  };
-};
-
-const getFormsApiBaseUrl = () => YANDEX_FORMS_PROXY_URL.replace(/\/$/, '');
-
-const getNextPageUrl = (apiBaseUrl: string, nextUrl: string) => {
-  if (!nextUrl) {
+const normalizeText = (value: unknown) => {
+  if (typeof value !== 'string') {
     return '';
   }
 
-  if (nextUrl.startsWith('http://') || nextUrl.startsWith('https://')) {
-    return nextUrl;
-  }
-
-  const normalizedPath = nextUrl.replace(/^\/v\d+/, '');
-
-  if (normalizedPath.startsWith('/')) {
-    return apiBaseUrl + normalizedPath;
-  }
-
-  return apiBaseUrl + '/' + normalizedPath;
+  return value.trim().replace(/\s+/g, ' ');
 };
-
-const normalizeText = (value: string) => value.trim().replace(/\s+/g, ' ');
-
-const valueToParts = (value: unknown): string[] => {
-  if (value === null || value === undefined) {
-    return [];
-  }
-
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return [String(value)];
-  }
-
-  if (Array.isArray(value)) {
-    return value.flatMap((entry) => valueToParts(entry));
-  }
-
-  if (typeof value === 'object') {
-    const objectValue = value as Record<string, unknown>;
-
-    if (typeof objectValue.label === 'string') {
-      return [objectValue.label];
-    }
-
-    if (objectValue.value !== undefined) {
-      return valueToParts(objectValue.value);
-    }
-  }
-
-  return [];
-};
-
-const valueToText = (value: unknown) =>
-  valueToParts(value)
-    .map((part) => normalizeText(part))
-    .filter(Boolean)
-    .join(', ');
 
 const normalizeDecision = (value: unknown) => {
-  const normalizedValues = valueToParts(value)
-    .map((entry) => normalizeText(entry).toLowerCase())
-    .filter(Boolean);
+  const normalized = normalizeText(String(value ?? ''));
+  const raw = normalized.toLowerCase();
 
-  if (
-    normalizedValues.some(
-      (entry) =>
-        entry === 'yes' ||
-        entry === 'true' ||
-        entry === 'да' ||
-        entry === 'приду' ||
-        entry === 'подтверждаю',
-    )
-  ) {
+  if (!raw) {
+    return 'Не указано';
+  }
+
+  if (raw === 'yes' || raw === 'true' || raw === 'приду' || raw === 'да') {
     return 'Приду';
   }
 
-  if (
-    normalizedValues.some(
-      (entry) =>
-        entry === 'no' || entry === 'false' || entry === 'нет' || entry === 'не приду' || entry === 'не приду.',
-    )
-  ) {
+  if (raw === 'no' || raw === 'false' || raw === 'не приду' || raw === 'нет') {
     return 'Не приду';
   }
 
-  const fallback = valueToText(value);
-  return fallback || 'Не указано';
+  return normalized;
 };
 
-const getAnswerValue = (answer: ApiAnswer, columns: ApiColumn[], slug: string): unknown => {
-  const answerData = Array.isArray(answer.data) ? answer.data : [];
-
-  for (const item of answerData) {
-    if (!item || typeof item !== 'object') {
-      continue;
-    }
-
-    if (String(item.id ?? '') === slug) {
-      return item.value;
-    }
-  }
-
-  const columnIndex = columns.findIndex((column) => {
-    if (!column || typeof column !== 'object') {
-      return false;
-    }
-
-    if (column.slug === slug) {
-      return true;
-    }
-
-    return String(column.id ?? '') === slug;
-  });
-
-  if (columnIndex >= 0) {
-    const columnValue = answerData[columnIndex];
-
-    if (columnValue && typeof columnValue === 'object') {
-      return columnValue.value;
-    }
-  }
-
-  return undefined;
-};
-
-const toTableRows = (answers: ApiAnswer[], columns: ApiColumn[]): SurveyResultRow[] => {
-  return answers
-    .map((answer, index) => {
-      const nameValue = getAnswerValue(answer, columns, YANDEX_FORMS_NAME_SLUG);
-      const confirmationValue = getAnswerValue(answer, columns, YANDEX_FORMS_CONFIRMATION_SLUG);
-      const name = valueToText(nameValue) || 'Не указано';
-      const decision = normalizeDecision(confirmationValue);
+const toRows = (rows: ApiResultRow[]): SurveyResultRow[] =>
+  rows
+    .map((row, index) => {
+      const createdAtCandidate = row.created_at ?? row.createdAt;
+      const createdAt = typeof createdAtCandidate === 'string' ? createdAtCandidate : '';
 
       return {
-        id: String(answer.id ?? index),
-        name,
-        decision,
-        createdAt: typeof answer.created === 'string' ? answer.created : '',
+        id: String(row.id ?? index),
+        name: normalizeText(String(row.name ?? '')) || 'Не указано',
+        decision: normalizeDecision(row.confirmation),
+        createdAt,
       };
     })
     .sort((left, right) => {
@@ -189,7 +70,6 @@ const toTableRows = (answers: ApiAnswer[], columns: ApiColumn[]): SurveyResultRo
       const rightDate = right.createdAt ? Date.parse(right.createdAt) : 0;
       return rightDate - leftDate;
     });
-};
 
 export function useSurveyResults() {
   const [rows, setRows] = useState<SurveyResultRow[]>([]);
@@ -197,82 +77,26 @@ export function useSurveyResults() {
   const [message, setMessage] = useState('');
 
   const loadResults = useCallback(async () => {
-    if (!YANDEX_FORMS_SURVEY_ID) {
-      setStatus('error');
-      setMessage('Не настроен VITE_YANDEX_FORMS_SURVEY_ID.');
-      return;
-    }
-
-    if (!YANDEX_FORMS_PROXY_URL) {
-      setStatus('error');
-      setMessage('Не настроен VITE_YANDEX_FORMS_PROXY_URL.');
-      return;
-    }
-
     setStatus('loading');
     setMessage('');
 
-    const apiBaseUrl = getFormsApiBaseUrl();
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-    };
-
-    if (YANDEX_FORMS_OAUTH_TOKEN) {
-      headers.Authorization = 'OAuth ' + YANDEX_FORMS_OAUTH_TOKEN;
-    }
-
-    if (YANDEX_FORMS_ORG_ID) {
-      headers['X-Org-Id'] = YANDEX_FORMS_ORG_ID;
-    }
-
-    if (YANDEX_FORMS_CLOUD_ORG_ID) {
-      headers['X-Cloud-Org-Id'] = YANDEX_FORMS_CLOUD_ORG_ID;
-    }
-
-    let pageUrl =
-      apiBaseUrl +
-      '/surveys/' +
-      YANDEX_FORMS_SURVEY_ID +
-      '/answers?page_size=' +
-      String(ANSWERS_PAGE_SIZE);
-
-    const allAnswers: ApiAnswer[] = [];
-    let columns: ApiColumn[] = [];
-
     try {
-      for (let pageIndex = 0; pageIndex < MAX_PAGES && pageUrl; pageIndex += 1) {
-        const response = await fetch(pageUrl, {
-          method: 'GET',
-          headers,
-        });
+      const response = await fetch(getApiUrl('/api/results'), {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
 
-        if (!response.ok) {
-          const responseText = await response.text();
-
-          if (response.status === 400 && responseText.includes('Требуется организация')) {
-            throw new Error(
-              'Для чтения ответов нужен X-Org-Id. Добавьте VITE_YANDEX_FORMS_ORG_ID или настройте YANDEX_FORMS_ORG_ID в Worker.',
-            );
-          }
-
-          throw new Error(responseText || 'HTTP ' + response.status);
-        }
-
-        const payload = (await response.json()) as ApiAnswersResponse;
-
-        if (Array.isArray(payload.columns) && payload.columns.length > 0) {
-          columns = payload.columns;
-        }
-
-        if (Array.isArray(payload.answers) && payload.answers.length > 0) {
-          allAnswers.push(...payload.answers);
-        }
-
-        const nextUrl = payload.next?.next_url ?? '';
-        pageUrl = nextUrl ? getNextPageUrl(apiBaseUrl, nextUrl) : '';
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(responseText || 'HTTP ' + response.status);
       }
 
-      setRows(toTableRows(allAnswers, columns));
+      const payload = (await response.json()) as ApiResultsResponse;
+      const apiRows = Array.isArray(payload.rows) ? payload.rows : [];
+
+      setRows(toRows(apiRows));
       setStatus('success');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Не удалось загрузить ответы.';
