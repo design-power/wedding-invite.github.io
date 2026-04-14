@@ -62,19 +62,19 @@
 
   30% {
     opacity: 1;
-    transform: translate3d(-50%, 14px, 0) rotate(2.8deg) scale(0.87);
+    transform: translate3d(-50%, 14px, 0) rotate(-14deg) scale(0.87);
   }
 
   50% {
-    transform: translate3d(-50%, -6px, 0) rotate(-1.4deg) scale(1.05);
+    transform: translate3d(-50%, -6px, 0) rotate(-22deg) scale(1.05);
   }
 
   66% {
-    transform: translate3d(-50%, 3px, 0) rotate(0.7deg) scale(0.98);
+    transform: translate3d(-50%, 3px, 0) rotate(-17deg) scale(0.98);
   }
 
   82% {
-    transform: translate3d(-50%, -1px, 0) rotate(-0.25deg) scale(1.01);
+    transform: translate3d(-50%, -1px, 0) rotate(-20deg) scale(1.01);
   }
 
   100% {
