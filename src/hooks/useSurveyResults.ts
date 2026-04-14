@@ -23,6 +23,11 @@ type ApiResultsResponse = {
   rows?: ApiResultRow[];
 };
 
+export type DeleteResultResponse = {
+  ok: boolean;
+  message?: string;
+};
+
 const getApiUrl = (path: string) => (API_BASE_URL ? API_BASE_URL + path : path);
 
 const normalizeText = (value: unknown) => {
@@ -75,6 +80,16 @@ const toRows = (rows: ApiResultRow[]): SurveyResultRow[] =>
       return rightDate - leftDate;
     });
 
+const normalizeRowId = (rowId: string) => {
+  const numericId = Number(rowId);
+
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    return 0;
+  }
+
+  return numericId;
+};
+
 export function useSurveyResults() {
   const [rows, setRows] = useState<SurveyResultRow[]>([]);
   const [status, setStatus] = useState<SurveyResultsStatus>('idle');
@@ -109,6 +124,66 @@ export function useSurveyResults() {
     }
   }, []);
 
+  const deleteResultById = useCallback(async (rowId: string, password: string): Promise<DeleteResultResponse> => {
+    const normalizedId = normalizeRowId(rowId);
+
+    if (!normalizedId) {
+      return {
+        ok: false,
+        message: 'Некорректный идентификатор записи.',
+      };
+    }
+
+    try {
+      const response = await fetch(getApiUrl(`/api/results/${normalizedId}`), {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          password,
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          return {
+            ok: false,
+            message: 'Неверный пароль для удаления.',
+          };
+        }
+
+        if (response.status === 404) {
+          return {
+            ok: false,
+            message: 'Запись не найдена.',
+          };
+        }
+
+        const responseText = await response.text();
+
+        return {
+          ok: false,
+          message: responseText || 'Не удалось удалить запись.',
+        };
+      }
+
+      setRows((previousRows) => previousRows.filter((row) => row.id !== String(normalizedId)));
+
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      console.error('Delete result failed:', error);
+
+      return {
+        ok: false,
+        message: 'Не удалось удалить запись. Попробуйте снова.',
+      };
+    }
+  }, []);
+
   useEffect(() => {
     void loadResults();
   }, [loadResults]);
@@ -118,5 +193,6 @@ export function useSurveyResults() {
     status,
     message,
     reload: loadResults,
+    deleteResultById,
   };
 }

@@ -1,9 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSurveyResults } from '../hooks/useSurveyResults';
 import './results.css';
 
 export function ResultsPage() {
-  const { rows, status, message, reload } = useSurveyResults();
+  const { rows, status, message, reload, deleteResultById } = useSurveyResults();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteStatusMessage, setDeleteStatusMessage] = useState('');
+  const [deleteStatusType, setDeleteStatusType] = useState<'success' | 'error' | 'idle'>('idle');
 
   const stats = useMemo(() => {
     let confirmed = 0;
@@ -39,6 +42,45 @@ export function ResultsPage() {
     };
   }, [rows]);
 
+  const handleDeleteResult = async (rowId: string, rowName: string) => {
+    const enteredPassword = window.prompt('Введите пароль для удаления записи:');
+
+    if (enteredPassword === null) {
+      return;
+    }
+
+    const password = enteredPassword.trim();
+
+    if (!password) {
+      setDeleteStatusType('error');
+      setDeleteStatusMessage('Пароль не введен.');
+      return;
+    }
+
+    const isConfirmed = window.confirm(`Удалить запись «${rowName}»?`);
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    setDeletingId(rowId);
+    setDeleteStatusType('idle');
+    setDeleteStatusMessage('');
+
+    const result = await deleteResultById(rowId, password);
+
+    setDeletingId(null);
+
+    if (result.ok) {
+      setDeleteStatusType('success');
+      setDeleteStatusMessage('Запись удалена.');
+      return;
+    }
+
+    setDeleteStatusType('error');
+    setDeleteStatusMessage(result.message ?? 'Не удалось удалить запись.');
+  };
+
   return (
     <section className="invitation-screen results-screen">
       <header className="results-header">
@@ -63,6 +105,15 @@ export function ResultsPage() {
       {status === 'loading' && <p className="results-status">Загружаем ответы...</p>}
       {status === 'success' && rows.length === 0 && (
         <p className="results-status">Пока нет отправленных ответов.</p>
+      )}
+      {deleteStatusMessage && deleteStatusType !== 'idle' && (
+        <p
+          className={`results-status ${
+            deleteStatusType === 'success' ? 'results-status--success' : 'results-status--error'
+          }`}
+        >
+          {deleteStatusMessage}
+        </p>
       )}
 
       {rows.length > 0 && (
@@ -99,6 +150,7 @@ export function ResultsPage() {
                 <tr>
                   <th>Имя</th>
                   <th>Решение</th>
+                  <th className="results-table-delete-head">Удалить</th>
                 </tr>
               </thead>
               <tbody>
@@ -106,6 +158,35 @@ export function ResultsPage() {
                   <tr key={row.id}>
                     <td>{row.name}</td>
                     <td>{row.decision}</td>
+                    <td className="results-table-delete-cell">
+                      <button
+                        type="button"
+                        className="results-delete-button"
+                        aria-label={`Удалить запись ${row.name}`}
+                        onClick={() => {
+                          void handleDeleteResult(row.id, row.name);
+                        }}
+                        disabled={deletingId === row.id}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="18"
+                          height="18"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4h8v2" />
+                          <path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 10v6" />
+                          <path d="M14 10v6" />
+                        </svg>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

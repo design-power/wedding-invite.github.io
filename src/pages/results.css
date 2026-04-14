@@ -26,6 +26,7 @@
   display: grid;
   grid-template-columns: 1fr;
   justify-content: center;
+  text-align: center;
   gap: 10px;
 }
 
@@ -53,6 +54,10 @@
 
 .results-status--error {
   color: #d64545;
+}
+
+.results-status--success {
+  color: #2f8b52;
 }
 
 .results-summary {
@@ -118,6 +123,32 @@
 .results-table td {
   font-size: 0.98rem;
   line-height: 1.25;
+}
+
+.results-table-delete-head,
+.results-table-delete-cell {
+  width: 72px;
+  text-align: center;
+}
+
+.results-table-delete-head {
+  white-space: nowrap;
+}
+
+.results-delete-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #9a9a9a;
+  border-radius: 8px;
+  background: #fff;
+  color: #7e7e7e;
+}
+
+.results-delete-button:disabled {
+  opacity: 0.5;
 }
 
 .results-table tr:last-child td {

@@ -752,6 +752,7 @@
   width: 100%;
   font-size: 0.95rem;
   line-height: 1.35;
+  text-align: center;
 }
 
 .form-status--submitting {

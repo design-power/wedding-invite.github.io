@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 3001);
+const RESULTS_DELETE_PASSWORD = process.env.RESULTS_DELETE_PASSWORD || 'may';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -108,6 +109,14 @@ function normalizeResponseId(input) {
   return value;
 }
 
+function normalizeDeletePassword(input) {
+  if (typeof input !== 'string') {
+    return '';
+  }
+
+  return input.trim();
+}
+
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
@@ -160,6 +169,27 @@ app.patch('/api/rsvp/:id', (req, res) => {
     .get(responseId);
 
   return res.json({ ok: true, row });
+});
+
+app.delete('/api/results/:id', (req, res) => {
+  const responseId = normalizeResponseId(req.params.id);
+  const password = normalizeDeletePassword(req.body?.password ?? req.query?.password);
+
+  if (!responseId) {
+    return res.status(400).json({ error: 'Invalid response id' });
+  }
+
+  if (!password || password !== RESULTS_DELETE_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+
+  const deleteResult = db.prepare('DELETE FROM responses WHERE id = ?').run(responseId);
+
+  if (deleteResult.changes === 0) {
+    return res.status(404).json({ error: 'Response not found' });
+  }
+
+  return res.json({ ok: true, deletedId: responseId });
 });
 
 app.get('/api/results', (_req, res) => {
