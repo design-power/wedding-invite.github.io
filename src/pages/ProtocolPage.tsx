@@ -454,8 +454,7 @@ export function ProtocolPage() {
         <h2 className="protocol-title-number" data-number="V.">
           ЯВКА ПОНЯТОГО
         </h2>
-        {(shouldShowNameField || shouldShowDecisionFields) && (
-          <p className="protocol-witness-text">
+        <p className="protocol-witness-text">
             Просим подтвердить личное присутствие <br /> до{' '}
             <span className="protocol-witness-day-wrapper" ref={answerDayAnimation.ref}>
               «___»
@@ -483,7 +482,6 @@ export function ProtocolPage() {
             <br />
             <br />и внести данные:
           </p>
-        )}
 
         <form className="form" onSubmit={handleSubmitWitnessForm}>
           {shouldShowNameField && (

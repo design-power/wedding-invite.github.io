@@ -165,13 +165,14 @@ const createSubmissionRequest = (name: string, confirmation: ConfirmationValue) 
     }),
   });
 
-const updateSubmissionRequest = (responseId: number, confirmation: ConfirmationValue) =>
+const updateSubmissionRequest = (responseId: number, name: string, confirmation: ConfirmationValue) =>
   fetch(getApiUrl(`/api/rsvp/${responseId}`), {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
+      name,
       confirmation,
     }),
   });
@@ -191,7 +192,7 @@ export function useProtocolWitnessForm() {
     storedSubmission ? 'success' : 'idle',
   );
   const [formSubmitMessage, setFormSubmitMessage] = useState(() =>
-    storedSubmission ? 'Ответ сохранен. Если нужно, можно изменить решение.' : '',
+    storedSubmission ? 'Ответ сохранен. Если нужно, можно изменить данные.' : '',
   );
 
   const hasStoredSubmission = Boolean(storedSubmission);
@@ -204,15 +205,15 @@ export function useProtocolWitnessForm() {
       const selectedConfirmation = normalizeConfirmationValue(confirmationValue);
       const isUpdateRequest = hasStoredSubmission && isEditingAnswer && storedSubmission;
 
-      if (!selectedConfirmation) {
+      if (!trimmedName) {
         setFormSubmitStatus('error');
-        setFormSubmitMessage('Выберите один из вариантов ответа.');
+        setFormSubmitMessage('Заполните ФИО.');
         return;
       }
 
-      if (!isUpdateRequest && !trimmedName) {
+      if (!selectedConfirmation) {
         setFormSubmitStatus('error');
-        setFormSubmitMessage('Заполните ФИО.');
+        setFormSubmitMessage('Выберите один из вариантов ответа.');
         return;
       }
 
@@ -224,12 +225,16 @@ export function useProtocolWitnessForm() {
         let hasFallbackCreate = false;
 
         if (isUpdateRequest) {
-          response = await updateSubmissionRequest(storedSubmission.id, selectedConfirmation);
+          response = await updateSubmissionRequest(
+            storedSubmission.id,
+            trimmedName,
+            selectedConfirmation,
+          );
 
           // Local storage may point to a deleted DB row. Recreate the response instead of failing.
           if (response.status === 404) {
             clearSubmissionStorage();
-            response = await createSubmissionRequest(storedSubmission.name, selectedConfirmation);
+            response = await createSubmissionRequest(trimmedName, selectedConfirmation);
             hasFallbackCreate = true;
           }
         } else {
@@ -242,11 +247,7 @@ export function useProtocolWitnessForm() {
         }
 
         const payload = (await response.json()) as RsvpApiResponse;
-        const nextSubmission = readSubmissionFromPayload(
-          payload.row,
-          isUpdateRequest ? storedSubmission.name : trimmedName,
-          selectedConfirmation,
-        );
+        const nextSubmission = readSubmissionFromPayload(payload.row, trimmedName, selectedConfirmation);
 
         if (!nextSubmission) {
           throw new Error('Invalid API payload');
@@ -260,9 +261,9 @@ export function useProtocolWitnessForm() {
         setFormSubmitStatus('success');
         setFormSubmitMessage(
           hasFallbackCreate
-            ? 'Предыдущая запись не найдена. Создали новую и сохранили решение.'
+            ? 'Предыдущая запись не найдена. Создали новую и сохранили данные.'
             : isUpdateRequest
-              ? 'Решение обновлено.'
+              ? 'Ответ обновлен.'
               : 'Спасибо! Ответ отправлен.',
         );
       } catch (error) {
@@ -293,6 +294,7 @@ export function useProtocolWitnessForm() {
       return;
     }
 
+    setNameValue(storedSubmission.name);
     setConfirmationValue(storedSubmission.confirmation);
     setIsEditingAnswer(true);
     setFormSubmitStatus('idle');
@@ -304,13 +306,14 @@ export function useProtocolWitnessForm() {
       return;
     }
 
+    setNameValue(storedSubmission.name);
     setConfirmationValue(storedSubmission.confirmation);
     setIsEditingAnswer(false);
     setFormSubmitStatus('success');
-    setFormSubmitMessage('Ответ сохранен. Если нужно, можно изменить решение.');
+    setFormSubmitMessage('Ответ сохранен. Если нужно, можно изменить данные.');
   }, [storedSubmission]);
 
-  const shouldShowNameField = !hasStoredSubmission;
+  const shouldShowNameField = !hasStoredSubmission || isEditingAnswer;
   const shouldShowDecisionFields = !hasStoredSubmission || isEditingAnswer;
   const shouldShowSubmitButton = !hasStoredSubmission || isEditingAnswer;
   const shouldShowEditButton = hasStoredSubmission && !isEditingAnswer;

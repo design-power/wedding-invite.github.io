@@ -146,15 +146,16 @@ app.post('/api/rsvp', (req, res) => {
 
 app.patch('/api/rsvp/:id', (req, res) => {
   const responseId = normalizeResponseId(req.params.id);
+  const name = normalizeName(req.body?.name);
   const confirmation = normalizeConfirmation(req.body?.confirmation);
 
-  if (!responseId || !confirmation) {
+  if (!responseId || !name || !confirmation) {
     return res.status(400).json({ error: 'Invalid payload' });
   }
 
   const updateResult = db
-    .prepare('UPDATE responses SET confirmation = ? WHERE id = ?')
-    .run(confirmation, responseId);
+    .prepare('UPDATE responses SET name = ?, confirmation = ? WHERE id = ?')
+    .run(name, confirmation, responseId);
 
   if (updateResult.changes === 0) {
     return res.status(404).json({ error: 'Response not found' });
